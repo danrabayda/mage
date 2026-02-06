@@ -5,6 +5,18 @@
 a dark neon melbourne florida
   </textarea><br><br>
 
+  <label for="steps">Steps:</label>
+  <input type="number" id="steps" value="50" min="1" max="100"><br><br>
+
+  <label for="guidance">Guidance Scale:</label>
+  <input type="number" id="guidance" value="4.5" step="0.1" min="0" max="20"><br><br>
+
+  <label for="width">Width:</label>
+  <input type="number" id="width" value="1920" step="64" min="64"><br><br>
+
+  <label for="height">Height:</label>
+  <input type="number" id="height" value="1080" step="64" min="64"><br><br>
+
   <button onclick="generate()">Generate</button><br><br>
 
   <img id="img" style="max-width: 100%;" />
@@ -15,10 +27,10 @@ a dark neon melbourne florida
     function generate() {
       ws.send(JSON.stringify({
         prompt: document.getElementById("prompt").value,
-        steps: 30,
-        guidance: 4.5,
-        width: 1536,
-        height: 864
+        steps: parseInt(document.getElementById("steps").value),
+        guidance: parseFloat(document.getElementById("guidance").value),
+        width: parseInt(document.getElementById("width").value),
+        height: parseInt(document.getElementById("height").value)
       }));
     }
 
