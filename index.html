@@ -23,7 +23,7 @@
       margin-right: 10px;
     }
 
-    input, textarea {
+    input, textarea, select {
       background-color: #4b0082;
       color: #e0d7ff;
       border: 1px solid #e0d7ff;
@@ -99,6 +99,14 @@
       <input type="number" id="height" value="1080" step="64" min="64">
     </div>
 
+    <div class="input-group">
+      <label for="model">🧙‍♀️ Model:</label>
+      <select id="model">
+        <option value="playgroundai/playground-v2.5-1024px-aesthetic" selected>Playground v2.5</option>
+        <option value="stabilityai/stable-diffusion-xl-base-1.0">Stable Diffusion XL Base 1.0</option>
+      </select>
+    </div>
+
     <button onclick="generate()">🔮 Generate</button>
     <button id="saveButton" style="display: none;" onclick="saveImage()">💾 Save Image</button><br><br>
 
@@ -115,7 +123,8 @@
         steps: parseInt(document.getElementById("steps").value),
         guidance: parseFloat(document.getElementById("guidance").value),
         width: parseInt(document.getElementById("width").value),
-        height: parseInt(document.getElementById("height").value)
+        height: parseInt(document.getElementById("height").value),
+        model: document.getElementById("model").value
       }));
 
       document.getElementById("saveButton").style.display = "none";
