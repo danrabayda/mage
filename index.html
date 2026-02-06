@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <textarea id="prompt" rows="4" cols="60">
+a dark neon melbourne florida
+  </textarea><br><br>
+
+  <button onclick="generate()">Generate</button><br><br>
+
+  <img id="img" style="max-width: 100%;" />
+
+  <script>
+    const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+
+    function generate() {
+      ws.send(JSON.stringify({
+        prompt: document.getElementById("prompt").value,
+        steps: 30,
+        guidance: 4.5,
+        width: 1536,
+        height: 864
+      }));
+    }
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.status === "done") {
+        document.getElementById("img").src =
+          "data:image/png;base64," + data.image;
+        console.log("Saved to:", data.path);
+      }
+    };
+  </script>
+</body>
+</html>

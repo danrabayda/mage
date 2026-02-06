@@ -1,2 +1,3 @@
-# mage
-iMAGE generator webapp for locally hosted models
+# MAGE
+
+image generator webapp for locally hosted models
