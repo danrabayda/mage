@@ -1,28 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Generator</title>
+  <style>
+    body {
+      background-color: #2c003e;
+      color: #e0d7ff;
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: #ffccff;
+    }
+
+    label {
+      font-size: 1.2rem;
+      margin-right: 10px;
+    }
+
+    input, textarea {
+      background-color: #4b0082;
+      color: #e0d7ff;
+      border: 1px solid #e0d7ff;
+      border-radius: 5px;
+      padding: 5px;
+      font-size: 1rem;
+    }
+
+    textarea {
+      width: 80%;
+    }
+
+    button {
+      background-color: #8000ff;
+      color: #ffffff;
+      border: none;
+      border-radius: 5px;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    button:hover {
+      background-color: #a64dff;
+    }
+
+    img {
+      margin-top: 20px;
+      border: 2px solid #e0d7ff;
+      border-radius: 10px;
+      max-width: 90%;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .wizard-icon {
+      font-size: 3rem;
+      margin-bottom: 20px;
+    }
+
+    .input-group {
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
 <body>
-  <textarea id="prompt" rows="4" cols="60">
-a dark neon melbourne florida
-  </textarea><br><br>
+  <div class="container">
+    <div class="wizard-icon">🧙‍♂️</div>
+    <h1>Mage</h1>
+    <textarea id="prompt" rows="4" placeholder="Enter your magical prompt here..."></textarea><br>
 
-  <label for="steps">Steps:</label>
-  <input type="number" id="steps" value="50" min="1" max="100"><br><br>
+    <div class="input-group">
+      <label for="steps">🌀 Steps:</label>
+      <input type="number" id="steps" value="50" min="1" max="100">
+    </div>
 
-  <label for="guidance">Guidance Scale:</label>
-  <input type="number" id="guidance" value="4.5" step="0.1" min="0" max="20"><br><br>
+    <div class="input-group">
+      <label for="guidance">✨ Guidance Scale:</label>
+      <input type="number" id="guidance" value="4.5" step="0.1" min="0" max="20">
+    </div>
 
-  <label for="width">Width:</label>
-  <input type="number" id="width" value="1920" step="64" min="64"><br><br>
+    <div class="input-group">
+      <label for="width">📏 Width:</label>
+      <input type="number" id="width" value="1920" step="64" min="64">
+    </div>
 
-  <label for="height">Height:</label>
-  <input type="number" id="height" value="1080" step="64" min="64"><br><br>
+    <div class="input-group">
+      <label for="height">📐 Height:</label>
+      <input type="number" id="height" value="1080" step="64" min="64">
+    </div>
 
-  <button onclick="generate()">Generate</button><br><br>
+    <button onclick="generate()">🔮 Generate</button>
+    <button id="saveButton" style="display: none;" onclick="saveImage()">💾 Save Image</button><br><br>
 
-  <img id="img" style="max-width: 100%;" />
+    <img id="img" alt="Generated Image" />
+  </div>
 
   <script>
     const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+    let currentImage = null;
 
     function generate() {
       ws.send(JSON.stringify({
@@ -32,17 +117,32 @@ a dark neon melbourne florida
         width: parseInt(document.getElementById("width").value),
         height: parseInt(document.getElementById("height").value)
       }));
+
+      document.getElementById("saveButton").style.display = "none";
     }
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
       if (data.status === "done") {
-        document.getElementById("img").src =
-          "data:image/png;base64," + data.image;
-        console.log("Saved to:", data.path);
+        currentImage = "data:image/png;base64," + data.image;
+        document.getElementById("img").src = currentImage;
+        document.getElementById("saveButton").style.display = "inline-block";
       }
     };
+
+    function saveImage() {
+      if (currentImage) {
+        const prompt = document.getElementById("prompt").value.trim().replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `${prompt}_${timestamp}.png`;
+
+        const link = document.createElement("a");
+        link.href = currentImage;
+        link.download = filename;
+        link.click();
+      }
+    }
   </script>
 </body>
 </html>

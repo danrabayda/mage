@@ -50,14 +50,14 @@ async def generate_image(ws: WebSocket):
         data = await ws.receive_json()
 
         prompt = data["prompt"]
-        steps = int(data.get("steps", 30))
+        steps = int(data.get("steps", 50))
         guidance = float(data.get("guidance", 4.5))
-        width = int(data.get("width", 1536))
-        height = int(data.get("height", 864))
+        width = int(data.get("width", 1920))
+        height = int(data.get("height", 1080))
 
         await ws.send_json({"status": "generating"})
 
-        
+        # Generate image
         image = pipe(
             prompt=prompt,
             num_inference_steps=steps,
@@ -66,13 +66,7 @@ async def generate_image(ws: WebSocket):
             height=height,
         ).images[0]
 
-        # Save image
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"image_{ts}.png"
-        path = os.path.join(OUTPUT_DIR, filename)
-        image.save(path)
-
-        # Encode for websocket
+        # Encode image for websocket
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         encoded = base64.b64encode(buffer.getvalue()).decode()
@@ -80,5 +74,4 @@ async def generate_image(ws: WebSocket):
         await ws.send_json({
             "status": "done",
             "image": encoded,
-            "path": path,
         })
