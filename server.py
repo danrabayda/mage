@@ -8,6 +8,8 @@ from diffusers import DiffusionPipeline
 from fastapi import FastAPI, WebSocket
 from PIL import Image
 
+import uvicorn
+
 # -----------------------------
 # CUDA-safe process setup
 # -----------------------------
@@ -25,7 +27,7 @@ def load_model(model_name):
         loaded_models[model_name] = DiffusionPipeline.from_pretrained(
             model_name,
             torch_dtype=torch.float16,
-            variant="fp16",
+            # variant="fp16",
         ).to("cuda")
         loaded_models[model_name].enable_attention_slicing()
         loaded_models[model_name].vae.enable_tiling()
@@ -53,10 +55,10 @@ async def generate_image(ws: WebSocket):
 
         model_name = data.get("model", "playgroundai/playground-v2.5-1024px-aesthetic")
         prompt = data["prompt"]
-        steps = int(data.get("steps", 50))
-        guidance = float(data.get("guidance", 4.5))
-        width = int(data.get("width", 1920))
-        height = int(data.get("height", 1080))
+        steps = int(data.get("steps", 10))
+        guidance = float(data.get("guidance", 3))
+        width = int(data.get("width", 1024))
+        height = int(data.get("height", 1024))
 
         await ws.send_json({"status": "generating"})
 
@@ -84,5 +86,4 @@ async def generate_image(ws: WebSocket):
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
-    import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
