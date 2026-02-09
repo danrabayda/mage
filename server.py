@@ -1,6 +1,7 @@
 import base64
 import io
 import os
+import gc
 from datetime import datetime
 
 import torch
@@ -17,26 +18,45 @@ import multiprocessing as mp
 mp.set_start_method("spawn", force=True)
 
 # -----------------------------
-# Cache for loaded models
+# Cache for currently loaded model
 # -----------------------------
-loaded_models = {}
+current_model = None
+current_model_name = None
+
+def unload_model():
+    global current_model, current_model_name
+    if current_model is not None:
+        print(f"Unloading model: {current_model_name}")
+        del current_model
+        current_model = None
+        current_model_name = None
+        gc.collect()
+        torch.cuda.empty_cache()
 
 def load_model(model_name):
-    if model_name not in loaded_models:
-        print(f"Loading model: {model_name}")
-        loaded_models[model_name] = DiffusionPipeline.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            # variant="fp16",
-        ).to("cuda")
-        loaded_models[model_name].enable_attention_slicing()
-        loaded_models[model_name].vae.enable_tiling()
-        loaded_models[model_name].vae.enable_slicing()
-        try:
-            loaded_models[model_name].enable_xformers_memory_efficient_attention()
-        except Exception as e:
-            print(f"Warning: XFormers not enabled for {model_name}: {e}")
-    return loaded_models[model_name]
+    global current_model, current_model_name
+    
+    if current_model_name == model_name:
+        return current_model
+    
+    unload_model()
+    
+    print(f"Loading model: {model_name}")
+    current_model = DiffusionPipeline.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        variant="fp16",
+    ).to("cuda")
+    current_model.enable_attention_slicing()
+    current_model.vae.enable_tiling()
+    current_model.vae.enable_slicing()
+    try:
+        current_model.enable_xformers_memory_efficient_attention()
+    except Exception as e:
+        print(f"Warning: XFormers not enabled for {model_name}: {e}")
+    
+    current_model_name = model_name
+    return current_model
 
 OUTPUT_DIR = "generated_images"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -46,6 +66,22 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # -----------------------------
 app = FastAPI()
 
+@app.websocket("/ws/load-model")
+async def load_model_ws(ws: WebSocket):
+    await ws.accept()
+    
+    while True:
+        data = await ws.receive_json()
+        model_name = data.get("model")
+        
+        try:
+            print(f"Loading model: {model_name}")
+            load_model(model_name)
+            await ws.send_json({"status": "loaded", "model": model_name})
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            await ws.send_json({"status": "error", "message": str(e)})
+
 @app.websocket("/ws")
 async def generate_image(ws: WebSocket):
     await ws.accept()
@@ -53,36 +89,41 @@ async def generate_image(ws: WebSocket):
     while True:
         data = await ws.receive_json()
 
-        model_name = data.get("model", "playgroundai/playground-v2.5-1024px-aesthetic")
         prompt = data["prompt"]
-        steps = int(data.get("steps", 10))
-        guidance = float(data.get("guidance", 3))
-        width = int(data.get("width", 1024))
-        height = int(data.get("height", 1024))
+        steps = int(data.get("steps", 50))
+        guidance = float(data.get("guidance", 4.5))
+        width = int(data.get("width", 1920))
+        height = int(data.get("height", 1080))
 
         await ws.send_json({"status": "generating"})
 
-        # Dynamically load the selected model
-        pipe = load_model(model_name)
+        try:
+            # Use the currently loaded model
+            if current_model is None:
+                await ws.send_json({"status": "error", "message": "No model loaded"})
+                continue
 
-        # Generate image
-        image = pipe(
-            prompt=prompt,
-            num_inference_steps=steps,
-            guidance_scale=guidance,
-            width=width,
-            height=height,
-        ).images[0]
+            # Generate image
+            image = current_model(
+                prompt=prompt,
+                num_inference_steps=steps,
+                guidance_scale=guidance,
+                width=width,
+                height=height,
+            ).images[0]
 
-        # Encode image for websocket
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        encoded = base64.b64encode(buffer.getvalue()).decode()
+            # Encode image for websocket
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            encoded = base64.b64encode(buffer.getvalue()).decode()
 
-        await ws.send_json({
-            "status": "done",
-            "image": encoded,
-        })
+            await ws.send_json({
+                "status": "done",
+                "image": encoded,
+            })
+        except Exception as e:
+            print(f"Error generating image: {e}")
+            await ws.send_json({"status": "error", "message": str(e)})
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)

@@ -77,7 +77,17 @@
   <div class="container">
     <div class="wizard-icon">🧙‍♂️</div>
     <h1>Mage</h1>
-    <textarea id="prompt" rows="4" placeholder="Enter your magical prompt here..."></textarea><br>
+
+    <div class="input-group">
+      <label for="model">🧙‍♀️ Model:</label>
+      <select id="model">
+        <option value="playgroundai/playground-v2.5-1024px-aesthetic" selected>Playground v2.5</option>
+        <option value="stabilityai/stable-diffusion-xl-base-1.0">Stable Diffusion XL Base 1.0</option>
+      </select>
+    </div><br>
+
+    <label for="prompt">✨ Prompt:</label><br>
+    <textarea id="prompt" rows="4" placeholder="Enter your prompt here..."></textarea><br><br>
 
     <div class="input-group">
       <label for="steps">🌀 Steps:</label>
@@ -99,32 +109,57 @@
       <input type="number" id="height" value="1024" step="64" min="64">
     </div>
 
-    <div class="input-group">
-      <label for="model">🧙‍♀️ Model:</label>
-      <select id="model">
-        <option value="playgroundai/playground-v2.5-1024px-aesthetic" selected>Playground v2.5</option>
-        <option value="stabilityai/stable-diffusion-xl-base-1.0">Stable Diffusion XL Base 1.0</option>
-      </select>
-    </div>
-
-    <button onclick="generate()">🔮 Generate</button>
+    <button id="generateButton" onclick="generate()">🔮 Generate</button>
     <button id="saveButton" style="display: none;" onclick="saveImage()">💾 Save Image</button><br><br>
 
     <img id="img" alt="Generated Image" />
   </div>
 
   <script>
+    const wsLoad = new WebSocket("ws://127.0.0.1:8000/ws/load-model");
     const ws = new WebSocket("ws://127.0.0.1:8000/ws");
     let currentImage = null;
+    let modelLoading = false;
+
+    // Handle model selection
+    document.getElementById("model").addEventListener("change", function() {
+      const selectedModel = this.value;
+      modelLoading = true;
+      document.getElementById("generateButton").disabled = true;
+      document.getElementById("generateButton").textContent = "⏳ Loading Model...";
+      
+      wsLoad.send(JSON.stringify({ model: selectedModel }));
+    });
+
+    wsLoad.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.status === "loaded") {
+        console.log(`Model loaded: ${data.model}`);
+        modelLoading = false;
+        document.getElementById("generateButton").disabled = false;
+        document.getElementById("generateButton").textContent = "🔮 Generate";
+      } else if (data.status === "error") {
+        console.error(`Error loading model: ${data.message}`);
+        modelLoading = false;
+        document.getElementById("generateButton").disabled = false;
+        document.getElementById("generateButton").textContent = "🔮 Generate";
+        alert(`Failed to load model: ${data.message}`);
+      }
+    };
 
     function generate() {
+      if (modelLoading) {
+        alert("Model is still loading. Please wait.");
+        return;
+      }
+      
       ws.send(JSON.stringify({
         prompt: document.getElementById("prompt").value,
         steps: parseInt(document.getElementById("steps").value),
         guidance: parseFloat(document.getElementById("guidance").value),
         width: parseInt(document.getElementById("width").value),
-        height: parseInt(document.getElementById("height").value),
-        model: document.getElementById("model").value
+        height: parseInt(document.getElementById("height").value)
       }));
 
       document.getElementById("saveButton").style.display = "none";
@@ -137,6 +172,8 @@
         currentImage = "data:image/png;base64," + data.image;
         document.getElementById("img").src = currentImage;
         document.getElementById("saveButton").style.display = "inline-block";
+      } else if (data.status === "error") {
+        alert(`Error: ${data.message}`);
       }
     };
 
