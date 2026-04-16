@@ -2,12 +2,11 @@ import base64
 import io
 import os
 import gc
-from datetime import datetime
 
 import torch
 from diffusers import DiffusionPipeline
 from fastapi import FastAPI, WebSocket
-from PIL import Image
+from fastapi.responses import FileResponse
 
 import uvicorn
 
@@ -45,7 +44,6 @@ def load_model(model_name):
     current_model = DiffusionPipeline.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        variant="fp16",
     ).to("cuda")
     current_model.enable_attention_slicing()
     current_model.vae.enable_tiling()
@@ -65,6 +63,14 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # FastAPI app
 # -----------------------------
 app = FastAPI()
+
+@app.get("/")
+async def root():
+    """Serve the frontend index.html for browser access."""
+    index_path = os.path.join(os.path.dirname(__file__), "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"detail": "Index not found. Use websocket endpoints at /ws and /ws/load-model"}
 
 @app.websocket("/ws/load-model")
 async def load_model_ws(ws: WebSocket):
